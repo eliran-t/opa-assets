@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Image Selector</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2em; }
+    .container {
+      display: flex;
+      align-items: flex-start;
+      gap: 2em;
+    }
+    #treeContainer {
+      min-width: 250px;
+      max-width: 350px;
+      border-right: 1px solid #ccc;
+      padding-right: 1em;
+    }
+    .preview-panel {
+      flex: 1;
+      min-width: 300px;
+      max-width: 600px;
+    }
+    .url { margin-top: 1em; font-weight: bold; word-break: break-all; }
+    img { display: block; margin-top: 1em; max-width: 100%; border: 1px solid #eee; box-shadow: 0 2px 8px #0001; }
+  </style>
+</head>
+<body>
+  <h1>Select an Image</h1>
+  <div class="container">
+    <div id="treeContainer"></div>
+    <div class="preview-panel">
+      <div style="display:flex;align-items:center;gap:0.5em;">
+        <div class="url" id="publicUrl"></div>
+        <button id="copyBtn" style="display:none;">Copy</button>
+      </div>
+      <img id="preview" style="display:none;"/>
+    </div>
+  </div>
+  <script>
+    // List of images in the project (relative to project root)
+    const images = [
+      "actors-green-screen/perp-gs.png",
+      "actors-green-screen/grok-gs.png",
+      "actors-green-screen/gemini-gs.png",
+      "actors-green-screen/deepseek-gs.png",
+      "actors-green-screen/copilot-gs.png",
+      "actors-green-screen/claud-gs.png",
+      "actors-green-screen/chatgpt-gs.png",
+      "bot-logos/bot-perplexity-icon.png",
+      "bot-logos/bot-meta-icon.png",
+      "bot-logos/bot-grok-icon.png",
+      "bot-logos/bot-gemini-icon.png",
+      "bot-logos/bot-deepseek-icon.png",
+      "bot-logos/bot-copilot-icon.png",
+      "bot-logos/bot-claude-icon.png",
+      "bot-logos/bot-chatgpt-icon.png",
+      "botheads/perplexity.png",
+      "botheads/grok.png",
+      "botheads/gemini.png",
+      "botheads/deepseek.png",
+      "botheads/copilot.png",
+      "botheads/claude.png",
+      "botheads/chatgpt.png",
+      "botheads-names/shrudi.png",
+      "botheads-names/perplexity.png",
+      "botheads-names/opa.png",
+      "botheads-names/meta.png",
+      "botheads-names/grok.png",
+      "botheads-names/gemini.png",
+      "botheads-names/deepseek.png",
+      "botheads-names/copilot.png",
+      "botheads-names/claude.png",
+      "botheads-names/chatgpt.png",
+      "cast_sheets/host_opa.png",
+      "cast_sheets/cohost_schrodinger.png",
+      "cast_sheets/bot_perplexity.png",
+      "cast_sheets/bot_meta.png",
+      "cast_sheets/bot_grok.png",
+      "cast_sheets/bot_gemini.png",
+      "cast_sheets/bot_deepseek.png",
+      "cast_sheets/bot_copilot.png",
+      "cast_sheets/bot_claude.png",
+      "cast_sheets/bot_chatgpt.png",
+      "newsite/learn/opa-gym.png",
+      "newsite/learn/opa-good-bad-gpt.png",
+      "newsite/learn/opa-confused.png",
+      "newsite/learn/gpt_good_bad.png",
+      "newsite/contact/opa-fund.png",
+      "newsite/contact/opa-fond.png",
+      "newsite/contact/opa-find.png",
+      "newsite/contact/opa-agent2.png",
+      "opahiaishow/cover-season2.png",
+      "opahiaishow/cover-season1.png",
+      "botvivor/tribe-kacabote.png",
+      "botvivor/cast-pirates.png",
+      "botvivor/cast-heads.png",
+      "botvivor/tribe-kosakosa.png",
+      "botvivor/tribes-hosts.png"
+    ];
+    const baseUrl = 'https://raw.githubusercontent.com/eliran-t/opa-assets/main/';
+    const urlDiv = document.getElementById('publicUrl');
+    const preview = document.getElementById('preview');
+    const treeContainer = document.getElementById('treeContainer');
+
+    // Build a tree structure from image paths
+    function buildTree(paths) {
+      const root = {};
+      for (const path of paths) {
+        const parts = path.split('/');
+        let node = root;
+        for (let i = 0; i < parts.length; i++) {
+          const part = parts[i];
+          if (!node[part]) node[part] = (i === parts.length - 1) ? null : {};
+          node = node[part] || node;
+        }
+      }
+      return root;
+    }
+
+    // Render the tree as collapsible HTML
+    function renderTree(node, path = "") {
+      let html = '<ul style="list-style:none; padding-left:1em;">';
+      for (const key in node) {
+        const child = node[key];
+        const fullPath = path ? path + '/' + key : key;
+        if (child === null) {
+          html += `<li style='margin:2px 0;'><span class='img-leaf' data-path="${fullPath}" style="cursor:pointer; color:#0074d9;">🖼️ ${key}</span></li>`;
+        } else {
+          html += `<li><span class='folder' style="cursor:pointer; font-weight:bold;">📁 ${key}</span>`;
+          html += `<div class='children' style='display:none;'>` + renderTree(child, fullPath) + `</div></li>`;
+        }
+      }
+      html += '</ul>';
+      return html;
+    }
+
+    // Attach event listeners for collapse/expand and image selection
+    function attachTreeEvents() {
+      treeContainer.querySelectorAll('.folder').forEach(folder => {
+        folder.addEventListener('click', function() {
+          const children = this.nextElementSibling;
+          if (children) {
+            children.style.display = children.style.display === 'none' ? 'block' : 'none';
+          }
+        });
+      });
+      treeContainer.querySelectorAll('.img-leaf').forEach(leaf => {
+        leaf.addEventListener('click', function() {
+          const val = this.getAttribute('data-path');
+          const copyBtn = document.getElementById('copyBtn');
+          if (val) {
+            const url = baseUrl + val.replace(/\\/g, '/');
+            urlDiv.textContent = url;
+            preview.src = url;
+            preview.style.display = 'block';
+            copyBtn.style.display = 'inline-block';
+          } else {
+            urlDiv.textContent = '';
+            preview.style.display = 'none';
+            copyBtn.style.display = 'none';
+          }
+        });
+      });
+      // Copy button logic
+      const copyBtn = document.getElementById('copyBtn');
+      copyBtn.addEventListener('click', function() {
+        const url = urlDiv.textContent;
+        if (url) {
+          navigator.clipboard.writeText(url);
+          copyBtn.textContent = 'Copied!';
+          setTimeout(() => { copyBtn.textContent = 'Copy'; }, 1200);
+        }
+      });
+    }
+
+    // Build and render the tree
+    const tree = buildTree(images);
+    treeContainer.innerHTML = renderTree(tree);
+    attachTreeEvents();
+  </script>
+</body>
+</html>
